@@ -1,11 +1,64 @@
+use sdl2::audio::{AudioCallback, AudioSpecDesired};
+use std::time::Duration;
+use std::convert::TryInto;
+use std::f32::consts::PI;
+
 pub fn main(){
-    test_sdl_audio();
+    let sr = 44100;
+    let secs = 2;
+    let mut samples = Vec::new();
+    for s in 0..secs * sr{
+        samples.push((s as f32 / sr as f32 * 440f32 * 2f32 * PI).sin())
+    }
+    play_sdl_audio_mono(samples, sr, 1f32);
+}
+
+pub fn play_sdl_audio_mono(samples: Vec<f32>, sample_rate: u32, volume: f32){
+    struct Sound{
+        index: usize,
+        samples: Vec<f32>,
+        volume: f32,
+    }
+
+    impl AudioCallback for Sound{
+        type Channel = f32;
+
+        fn callback(&mut self, out: &mut [f32]){
+            for x in out.iter_mut(){
+                *x = if self.index < self.samples.len(){
+                    self.samples[self.index] * self.volume
+                }else{
+                    0f32
+                };
+                self.index += 1;
+            }
+        }
+    }
+
+    let sdl_context = sdl2::init().unwrap();
+    let audio_subsystem = sdl_context.audio().unwrap();
+
+    let desired_spec = AudioSpecDesired {
+        freq: Some(sample_rate.try_into().unwrap()),
+        channels: Some(1),
+        samples: None
+    };
+
+    let slen = samples.len();
+    let device = audio_subsystem.open_playback(None, &desired_spec, |_spec| {
+        // initialize the audio callback
+        Sound{
+            index: 0,
+            samples,
+            volume,
+        }
+    }).unwrap();
+
+    device.resume();
+    std::thread::sleep(Duration::from_millis((slen / sample_rate as usize * 1000).try_into().unwrap()));
 }
 
 pub fn test_sdl_audio(){
-    use sdl2::audio::{AudioCallback, AudioSpecDesired};
-    use std::time::Duration;
-
     struct SquareWave {
         phase_inc: f32,
         phase: f32,
@@ -50,5 +103,5 @@ pub fn test_sdl_audio(){
     device.resume();
 
     // Play for 2 seconds
-    std::thread::sleep(Duration::from_millis(10000));
+    std::thread::sleep(Duration::from_millis(2000));
 }
