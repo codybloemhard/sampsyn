@@ -6,8 +6,9 @@ use otsyn;
 
 pub fn main(){
     let sr = 44100;
-    let samples = otsyn::tone(440f32,sr,2f32);
-    play_sdl_audio_mono(samples, sr, 1f32);
+    let instrument = vec![(1.0,2.0),(1.1,1.0),(1.3,1.5),(1.5,1.0),(1.3,1.0),(1.1,1.0),(0.9,1.0),(0.7,1.0),(0.5,1.0),(0.3,1.0),(0.1,1.0)];
+    let samples = otsyn::tone(220.0,sr, 2.0, instrument);
+    play_sdl_audio_mono(samples, sr, 0.9);
 }
 
 pub fn test_sdl_audio(){

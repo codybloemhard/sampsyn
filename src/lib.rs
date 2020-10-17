@@ -1,16 +1,18 @@
 use std::f32::consts::PI;
 
-pub fn tone(hz: f32, sr: usize, len: f32) -> Vec<f32>{
+pub type Instrument = Vec<(f32,f32)>;
+
+pub fn tone(hz: f32, sr: usize, len: f32, inst: Instrument) -> Vec<f32>{
     let mut samples = Vec::new();
     for s in 0..(len * sr as f32) as usize{
         let t = s as f32 / sr as f32;
         let mut s = 0.0;
         let mut amp = 0.0;
-        for i in 1..20{
+        for (i,(a,l)) in inst.iter().enumerate(){
+            let i = i + 1;
             let ohz = hz * i as f32;
-            if ohz > 20000.0 { break; }
-            let a = 1.0 / i as f32;
-            s += sine_sample(t, ohz) * a;
+            if ohz > 20000.0 || a < &0.001 { break; }
+            s += sine_sample(t, ohz) * a * (l - t).max(0.0);
             amp += a;
         }
         s /= amp;
