@@ -2,12 +2,29 @@ use sdl2::audio::{AudioCallback, AudioSpecDesired};
 use std::time::Duration;
 use std::convert::TryInto;
 use std::f32::consts::PI;
-use otsyn;
+use otsyn::*;
 
 pub fn main(){
     let sr = 44100;
-    let instrument = vec![(1.0,2.0),(1.1,1.0),(1.3,1.5),(1.5,1.0),(1.3,1.0),(1.1,1.0),(0.9,1.0),(0.7,1.0),(0.5,1.0),(0.3,1.0),(0.1,1.0)];
-    let samples = otsyn::tone(220.0,sr, 2.0, instrument);
+    let af = (1.0,0.02);
+    let ff = (1.5,2.0);
+    let guitar = vec![
+        (1.0,1.0,af,ff),
+        (1.0,1.0,af,ff),
+        (0.8,1.0,af,ff),
+        (0.5,1.0,af,ff),
+        (0.3,1.0,af,ff),
+        (0.4,1.0,af,ff),
+        (0.5,1.0,af,ff),
+        (0.5,1.0,af,ff),
+        (0.5,1.0,af,ff),
+        (0.3,1.0,af,ff),
+        (0.4,1.0,af,ff),
+        (0.2,1.0,af,ff),
+        (0.5,1.0,af,ff),
+        (0.4,1.0,af,ff),
+        (0.2,0.0,af,ff)];
+    let samples = otsyn::tone(220.0,sr, 2.0, guitar);
     play_sdl_audio_mono(samples, sr, 0.9);
 }
 
