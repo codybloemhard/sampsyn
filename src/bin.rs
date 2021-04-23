@@ -5,6 +5,23 @@ use std::f32::consts::PI;
 use otsyn::*;
 
 pub fn main(){
+    let args: Vec<String> = std::env::args().collect();
+    let file = &args[1];
+    let mut reader = hound::WavReader::open(file).expect("Could not open file!");
+    let mut copy = Vec::new();
+    for s in reader.samples::<i16>().take(3 * 44100){
+        if s.is_err() { continue; }
+        let s = s.unwrap();
+        copy.push(s);
+    }
+    let inst = learn_instrument(&copy, 44100, 130.81);
+    let samples = otsyn::tone(130.81, 44100, 5.0, inst);
+    loop{
+        play_sdl_audio_mono(samples.clone(), 44100, 0.9);
+    }
+}
+
+pub fn test_instrument(){
     let sr = 44100;
     let af = (1.0,0.02);
     let ff = (1.5,2.0);
