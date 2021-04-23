@@ -16,3 +16,4 @@ path = "src/bin.rs"
 
 [dependencies]
 sdl2 = "0.34.3"
+hound = "3.4.0"
