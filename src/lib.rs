@@ -1,9 +1,31 @@
 use rand::prelude::*;
 use std::f32::consts::PI;
 pub type Fluctuation = (f32,f32); // sin period(sec), sin amplitude
+// property of harmonic: amplitude, duration to ampl = 0(sec)
+pub type SimpleHarmF = (f32,f32);
+pub type SimpleInstrument = Vec<SimpleHarmF>;
 // property of harmonic: amplitude, duration to ampl = 0(sec), amplitude fluc, freq fluc
 pub type HarmF = (f32,f32,Fluctuation,Fluctuation);
 pub type Instrument = Vec<HarmF>;
+
+pub fn simple_tone(hz: f32, sr: usize, len: f32, inst: SimpleInstrument) -> Vec<f32>{
+    let mut samples = Vec::new();
+    for s in 0..(len * sr as f32) as usize{
+        let t = s as f32 / sr as f32;
+        let mut s = 0.0;
+        let mut amp = 0.0;
+        for (i,(a,l)) in inst.iter().enumerate(){
+            let i = i + 1;
+            let ohz = (hz * i as f32).min(20000.0);
+            let a = a.max(0.0);
+            s += sine_sample(t, ohz) * a * ((l*len - t) / len).max(0.0);
+            amp += a;
+        }
+        s /= amp;
+        samples.push(s);
+    }
+    samples
+}
 
 pub fn tone(hz: f32, sr: usize, len: f32, inst: Instrument) -> Vec<f32>{
     let mut samples = Vec::new();
@@ -32,11 +54,11 @@ pub fn fluctuate(t: f32, (p,a): Fluctuation) -> f32{
     (t * 2f32 * PI / p).sin() * a
 }
 
-pub fn learn_instrument(sample: &[i16], sr: usize, hz: f32) -> Instrument{
-    let hs = 20;
+pub fn learn_simple_instrument(sample: &[i16], sr: usize, hz: f32, hs: usize) -> SimpleInstrument{
+    let hs = hs.min((20000.0 / hz) as usize);
     let hsf = hs as f32;
     let len = sample.len() as f32 / sr as f32;
-    let mut instr = vec![(1. / hsf, len, (1., 0.), (1., 0.)); hs];
+    let mut instr = vec![(1. / hsf, len); hs];
     fn cerror(og: &[i16], inp: &[f32]) -> usize{
         let mut error = 0;
         for i in 0..og.len().min(inp.len()){
@@ -71,27 +93,28 @@ pub fn learn_instrument(sample: &[i16], sr: usize, hz: f32) -> Instrument{
     pub fn choose(rng: &mut ThreadRng, len: usize) -> usize{
         rng.gen::<usize>() % len
     }
-    pub fn mut_amp(harm: HarmF, delta: f32) -> HarmF{
-        (harm.0 + delta, harm.1, harm.2, harm.3)
+    pub fn mut_amp(harm: SimpleHarmF, delta: f32) -> SimpleHarmF{
+        (harm.0 + delta, harm.1)
     }
-    pub fn mut_len(harm: HarmF, delta: f32) -> HarmF{
-        (harm.0, harm.1 + delta, harm.2, harm.3)
+    pub fn mut_len(harm: SimpleHarmF, delta: f32) -> SimpleHarmF{
+        (harm.0, harm.1 + delta)
     }
     let mut error = std::usize::MAX;
     let mut rng = rand::thread_rng();
     let mut i = 0;
+    let mut sens = 0.2;
     loop{
         let old_error = error;
         for _ in 0..100{
             let h = choose(&mut rng, hs);
             let mut inst_clone = instr.clone();
             wchoose!(&mut rng, &[0.3, 0.3, 0.2, 0.2],
-                {inst_clone[h] = mut_amp(inst_clone[h], 0.05)},
-                {inst_clone[h] = mut_amp(inst_clone[h], -0.05)},
-                {inst_clone[h] = mut_len(inst_clone[h], 0.05)},
-                {inst_clone[h] = mut_len(inst_clone[h], -0.05)}
+                {inst_clone[h] = mut_amp(inst_clone[h], sens)},
+                {inst_clone[h] = mut_amp(inst_clone[h], -sens)},
+                {inst_clone[h] = mut_len(inst_clone[h], sens)},
+                {inst_clone[h] = mut_len(inst_clone[h], -sens)}
             );
-            let tone = tone(hz, sr, len, inst_clone.clone());
+            let tone = simple_tone(hz, sr, len, inst_clone.clone());
             let err = cerror(&sample, &tone);
             if err < error{
                 error = err;
@@ -101,7 +124,9 @@ pub fn learn_instrument(sample: &[i16], sr: usize, hz: f32) -> Instrument{
         }
         println!("---- {}, ", error);
         if old_error == error{
-            break;
+            sens *= 0.5;
+            println!("-- sens: {}, ", sens);
+            if sens < 0.001 { break; }
         }
     }
     println!("Did {} iterations!", i);
