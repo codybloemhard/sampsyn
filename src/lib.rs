@@ -133,6 +133,62 @@ pub fn learn_simple_instrument(sample: &[i16], sr: usize, hz: f32, hs: usize) ->
     instr
 }
 
+// some different shit idk what's this is turning into
+
+// (hz, sr, samples, [(time, wave)])
+pub type WaveTable = (f32, usize, usize, Vec<(f32, Vec<f32>)>);
+
+pub fn into_mono(stereo: Vec<i16>) -> Vec<f32>{
+    let mut mono = Vec::new();
+    let mut i = 0;
+    let mut y = 0i32;
+    for x in stereo{
+        y += x as i32;
+        if i == 0{
+            i = 1;
+        } else {
+            i = 0;
+            mono.push((y / 2) as f32 / i16::MAX as f32);
+            y = 0;
+        }
+    }
+    mono
+}
+
+pub fn create_wavetable(stereo: Vec<i16>, sr: usize, hz: f32) -> WaveTable{
+    let mono = into_mono(stereo);
+    let samples = (sr as f32 / hz).round() as usize;
+    let mut waves = vec![(0.0, mono.iter().copied().take(samples).collect::<Vec<_>>())];
+
+    let mut t = samples;
+    loop{
+        if t + samples >= mono.len() { break; }
+        waves.push((t as f32 / sr as f32, mono.iter().copied().skip(t).take(samples).collect::<Vec<_>>()));
+        t *= 2;
+    }
+    (hz, sr, samples, waves)
+}
+
+pub fn wavetable_act((waves_hz, sr, samples, waves): &WaveTable, hz: f32, t: f32, len: usize) -> Vec<f32>{
+    let mut res = Vec::new();
+    let mut a = 0;
+    let mut b = 1;
+    let mut diff = waves[1].0 - waves[0].0;
+    for i in 0..len{
+        let t = i as f32 / *sr as f32;
+        if t > waves[b].0 && b < waves.len() - 1{
+            a += 1;
+            b += 1;
+            diff = waves[b].0 - waves[a].0;
+        }
+        let norm_t = ((t - waves[a].0) / diff).min(1.0);
+        let j = (i as f32 * (hz / waves_hz)).round() as usize % samples;
+        let v = waves[a].1[j] + norm_t * (waves[b].1[j] - waves[a].1[j]);
+        res.push(v);
+    }
+    res
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

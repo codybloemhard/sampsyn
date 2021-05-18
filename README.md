@@ -1,2 +1,2 @@
 # otsyn
-Weird synth or something
+Weird synth experiments

@@ -1,4 +1,4 @@
-use sdl2::audio::{AudioCallback, AudioSpecDesired};
+use sdl2::audio::{ AudioCallback, AudioSpecDesired };
 use std::time::Duration;
 use std::convert::TryInto;
 use std::f32::consts::PI;
@@ -9,17 +9,18 @@ pub fn main(){
     let file = &args[1];
     let mut reader = hound::WavReader::open(file).expect("Could not open file!");
     let mut copy = Vec::new();
-    for s in reader.samples::<i16>().take(1 * 44100){
+    for s in reader.samples::<i16>().take(5 * 44100){
         if s.is_err() { continue; }
         let s = s.unwrap();
         copy.push(s);
     }
     let hz = 130.81; // 130.81 = c3, 261.63 = c4, 523.25 = c5
-    let inst = learn_simple_instrument(&copy, 44100, hz, 30);
-    let samples = otsyn::simple_tone(hz, 44100, 5.0, inst);
-    loop{
-        play_sdl_audio_mono(samples.clone(), 44100, 0.9);
-    }
+    // let inst = learn_simple_instrument(&copy, 44100, hz, 30);
+    // let samples = otsyn::simple_tone(hz, 44100, 5.0, inst);
+    let table = create_wavetable(copy, 44100, hz);
+    println!("waves: {}", table.3.len());
+    let samples = wavetable_act(&table, hz * 2.0, 0.0, 44100 * 9);
+    play_sdl_audio_mono(samples, 44100, 0.9);
 }
 
 pub fn test_instrument(){
