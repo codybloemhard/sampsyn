@@ -18,7 +18,9 @@ pub fn main(){
     // let inst = learn_simple_instrument(&copy, 44100, hz, 30);
     // let samples = otsyn::simple_tone(hz, 44100, 5.0, inst);
     let table = create_wavetable(copy, 44100, hz);
-    println!("waves: {}", table.3.len());
+    for (t,_) in &table.3{
+        println!("{}", t);
+    }
     let samples = wavetable_act(&table, hz * 2.0, 0.0, 44100 * 9);
     play_sdl_audio_mono(samples, 44100, 0.9);
 }
