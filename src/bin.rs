@@ -2,9 +2,19 @@ use sdl2::audio::{ AudioCallback, AudioSpecDesired };
 use std::time::Duration;
 use std::convert::TryInto;
 use std::f32::consts::PI;
+use std::io::Write;
+
 use otsyn::*;
 
 pub fn main(){
+    let hz = 130.81; // 130.81 = c3, 261.63 = c4, 523.25 = c5
+    // let table = table_from_file_from_arg(hz);
+    let table = read_wavetable_from_file("table").unwrap();
+    play_table(&table, hz, 0.0);
+    // table_write(&table, "table")
+}
+
+pub fn table_from_file_from_arg(hz: f32) -> WaveTable{
     let args: Vec<String> = std::env::args().collect();
     let file = &args[1];
     let mut reader = hound::WavReader::open(file).expect("Could not open file!");
@@ -14,39 +24,18 @@ pub fn main(){
         let s = s.unwrap();
         copy.push(s);
     }
-    let hz = 130.81; // 130.81 = c3, 261.63 = c4, 523.25 = c5
-    // let inst = learn_simple_instrument(&copy, 44100, hz, 30);
-    // let samples = otsyn::simple_tone(hz, 44100, 5.0, inst);
-    let table = create_wavetable(copy, 44100, hz);
-    for (t,_) in &table.3{
-        println!("{}", t);
-    }
-    let samples = wavetable_act(&table, hz * 2.0, 0.0, 44100 * 9);
-    play_sdl_audio_mono(samples, 44100, 0.9);
+    create_wavetable(copy, 44100, hz)
 }
 
-pub fn test_instrument(){
-    let sr = 44100;
-    let af = (1.0,0.02);
-    let ff = (1.5,2.0);
-    let guitar = vec![
-        (1.0,1.0,af,ff),
-        (1.0,1.0,af,ff),
-        (0.8,1.0,af,ff),
-        (0.5,1.0,af,ff),
-        (0.3,1.0,af,ff),
-        (0.4,1.0,af,ff),
-        (0.5,1.0,af,ff),
-        (0.5,1.0,af,ff),
-        (0.5,1.0,af,ff),
-        (0.3,1.0,af,ff),
-        (0.4,1.0,af,ff),
-        (0.2,1.0,af,ff),
-        (0.5,1.0,af,ff),
-        (0.4,1.0,af,ff),
-        (0.2,0.0,af,ff)];
-    let samples = otsyn::tone(220.0,sr, 2.0, guitar);
-    play_sdl_audio_mono(samples, sr, 0.9);
+pub fn table_write(table: &WaveTable, file: &str){
+    let bytes = bincode::serialize(table).unwrap();
+    let mut buffer = std::fs::File::create(file).unwrap();
+    buffer.write_all(&bytes).unwrap();
+}
+
+pub fn play_table(table: &WaveTable, hz: f32, t: f32){
+    let samples = wavetable_act(table, hz, t, 44100 * 9);
+    play_sdl_audio_mono(samples, 44100, 0.99);
 }
 
 pub fn test_sdl_audio(){
@@ -104,45 +93,3 @@ pub fn play_sdl_audio_mono(samples: Vec<f32>, sample_rate: usize, volume: f32){
     std::thread::sleep(Duration::from_millis((slen / sample_rate * 1000).try_into().unwrap()));
 }
 
-// fn _test1(){
-//     let sr = 44100;
-//     let mut track = music_gen::tones::Track::new(sr, 2);
-//     let tonef = &spread(6, 1.003, 0.0, sine_sample);
-//     let volf = &hit_lin_quot_quad(40.0,0.2, 1.0, 2);
-//     let hzf = &arg_id;
-//     let passf = &smooth_pass(10.0);
-//
-//     let mut score = Score::new();
-//     score.new_staff();
-//     score.new_bar(0, Bar::new(Key::std_key(), 120.0, TimeSig::new(1, 1.0)));
-//     score.add_note(barnote(NamedNote::A(4).to_note(), 1.0), false, 0);
-//     score.add_note(barnote(NamedNote::A(4).to_note(), 1.0), false, 0);
-//     score.add_note(barnote(NamedNote::Cs(4).to_note(), 1.0), true, 0);
-//     score.add_note(barnote(NamedNote::E(4).to_note(), 1.0), true, 0);
-//
-//     println!("{}", score.as_string(0));
-//
-//     score.render_to_track_stereo(0, &mut track, 3.0, 1.0, 0.0, tonef, volf, hzf, passf);
-//     track.trim_end(0.001);
-//     track.normalize(0.99);
-//     track.render("test.wav");
-// }
-//
-// fn _test0(){
-//     //let scale = ionian_mode(NamedNote::A(4).to_note(), AEOLIAN);
-//     let scale = miscellaneous_scales::satie_scale_steps().as_scale(NamedNote::A(3).to_note());
-//     print_notes(&scale.0, "\t");
-//     let sr = 44100;
-//     let mut track = music_gen::tones::Track::new(sr, 2);
-//     let volf = &hit_lin_quot_quad(40.0,0.2, 1.0, 2);
-//     let mut time = 0;
-//     for note in scale.0{//TODO: make iter for Scale
-//         let hz = to_pitch(note);
-//         //tone_to_track(&mut track, time, sr * 3, 1.0, 0.0, 0.0, hz, &sine_sample, &arg_id, volf, &arg_id);
-//         tone_to_track_stereo(&mut track, time, sr * 3 as usize, 1.0, 0.0, hz, &spread(6, 1.003, 0.0, sine_sample), volf, &arg_id, &smooth_pass(10.0));
-//         time += sr/2;
-//     }
-//     track.trim_end(0.001);
-//     track.normalize(0.99);
-//     track.render("test.wav");
-// }
