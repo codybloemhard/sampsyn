@@ -48,7 +48,7 @@ pub fn create_wavetable(stereo: Vec<i16>, sr: usize, hz: f32) -> WaveTable{
     WaveTable(hz, sr, samples, waves)
 }
 
-pub fn wavetable_act(WaveTable(waves_hz, sr, samples, waves): &WaveTable, hz: f32, t: f32, len: usize) -> Vec<f32>{
+pub fn wavetable_act(WaveTable(waves_hz, _sr, samples, waves): &WaveTable, hz: f32, t: f32, sr: f32, len: usize) -> Vec<f32>{
     let mut res = Vec::new();
     if waves.is_empty() {
         return res;
@@ -76,16 +76,17 @@ pub fn wavetable_act(WaveTable(waves_hz, sr, samples, waves): &WaveTable, hz: f3
         }
     }
     // generate buffer
-    let off = (t * *sr as f32) as usize;
+    let off = (t * sr) as usize;
+    let sr_rat = *_sr as f32 / sr;
     for i in 0..len{
-        let tt = t + (i as f32 / *sr as f32);
+        let tt = t + (i as f32 / sr);
         if tt > waves[b].0 && b < waves.len() - 1{
             a += 1;
             b += 1;
             diff = waves[b].0 - waves[a].0;
         }
         // lerp between frames
-        let float_frame = (off + i) as f32 * (hz / waves_hz);
+        let float_frame = (off + i) as f32 * sr_rat * (hz / waves_hz);
         let under = float_frame.floor() as usize % samples;
         let above = float_frame.ceil() as usize % samples;
         let fract = float_frame.fract();

@@ -10,7 +10,7 @@ pub fn main(){
     let hz = 130.81; // 130.81 = c3, 261.63 = c4, 523.25 = c5
     // let table = table_from_file_from_arg(hz);
     let table = read_wavetable_from_file("table").unwrap();
-    play_table(&table, hz, 0.0);
+    play_table(&table, 440.0, 0.0, 96000);
     // table_write(&table, "table")
 }
 
@@ -33,9 +33,9 @@ pub fn table_write(table: &WaveTable, file: &str){
     buffer.write_all(&bytes).unwrap();
 }
 
-pub fn play_table(table: &WaveTable, hz: f32, t: f32){
-    let samples = wavetable_act(table, hz, t, 44100 * 9);
-    play_sdl_audio_mono(samples, 44100, 0.99);
+pub fn play_table(table: &WaveTable, hz: f32, t: f32, sr: usize){
+    let samples = wavetable_act(table, hz, t, sr as f32, sr * 9);
+    play_sdl_audio_mono(samples, sr, 0.99);
 }
 
 pub fn test_sdl_audio(){
