@@ -2,11 +2,11 @@ use serde::{ Serialize, Deserialize };
 use std::io::prelude::*;
 use std::fs::File;
 
-// (hz, sr, samples, [(time, wave)])
+/// WaveTable(hz, sr, samples, [(time, wave)])
 #[derive(Serialize, Deserialize)]
 pub struct WaveTable(f32, usize, usize, Vec<(f32, Vec<f32>)>);
 
-pub fn into_mono(stereo: Vec<i16>) -> Vec<f32>{
+fn into_mono(stereo: Vec<i16>) -> Vec<f32>{
     let mut mono = Vec::new();
     let mut i = 0;
     let mut y = 0i32;
@@ -23,6 +23,7 @@ pub fn into_mono(stereo: Vec<i16>) -> Vec<f32>{
     mono
 }
 
+/// Reads a file and you get the table out of it(if it is indeed a table file)
 pub fn read_wavetable_from_file(file: &str) -> Option<WaveTable>{
     let mut buffer = Vec::new();
     let mut file = if let Ok(file) = File::open(file) { file }
@@ -32,6 +33,10 @@ pub fn read_wavetable_from_file(file: &str) -> Option<WaveTable>{
     else { None }
 }
 
+/// Takes a bunch of samples, sr of the input and the frequency of the fundemental to create the
+/// wave table. Yes, you should know what the base frequency is otherwise it won't work.
+/// You could try doing a different frequency than it actually is for artistic effect but I didn't
+/// test that.
 pub fn create_wavetable(stereo: Vec<i16>, sr: usize, hz: f32) -> WaveTable{
     let mono = into_mono(stereo);
     let max = mono.iter().fold(0.0, |max: f32, v| max.max(v.abs()));
@@ -48,6 +53,9 @@ pub fn create_wavetable(stereo: Vec<i16>, sr: usize, hz: f32) -> WaveTable{
     WaveTable(hz, sr, samples, waves)
 }
 
+/// Takes a wave table and a frequency of what you want the fundemental of the output to be. t is
+/// the starting time it's at currently and sr is the samplerate of the output. len is the amount
+/// of frames the output should be.
 pub fn wavetable_act(WaveTable(waves_hz, _sr, samples, waves): &WaveTable, hz: f32, t: f32, sr: f32, len: usize) -> Vec<f32>{
     let mut res = Vec::new();
     if waves.is_empty() {
@@ -102,6 +110,7 @@ pub fn wavetable_act(WaveTable(waves_hz, _sr, samples, waves): &WaveTable, hz: f
 
 #[cfg(test)]
 mod tests {
+    // 100% test coverage
     #[test]
     fn it_works() {
         assert_eq!(2 + 2, 4);

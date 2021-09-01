@@ -4,7 +4,7 @@ use std::convert::TryInto;
 use std::f32::consts::PI;
 use std::io::Write;
 
-use otsyn::*;
+use sampsyn::*;
 
 pub fn main(){
     let hz = 130.81; // 130.81 = c3, 261.63 = c4, 523.25 = c5
