@@ -1,6 +1,5 @@
 use serde::{ Serialize, Deserialize };
-use std::io::prelude::*;
-use std::fs::File;
+use simpleio::read_file_into_buffer;
 
 /// WaveTable(hz, sr, samples, [(time, wave)])
 #[derive(Serialize, Deserialize)]
@@ -23,14 +22,19 @@ fn into_mono(stereo: Vec<i16>) -> Vec<f32>{
     mono
 }
 
+/// Parses table from buffer, so you can manage the file seperately
+pub fn parse_wavetable_from_buffer(buffer: &[u8]) -> Option<WaveTable>{
+    if let Ok(table) = bincode::deserialize(buffer) { Some(table) }
+    else { None }
+}
+
 /// Reads a file and you get the table out of it(if it is indeed a table file)
 pub fn read_wavetable_from_file(file: &str) -> Option<WaveTable>{
-    let mut buffer = Vec::new();
-    let mut file = if let Ok(file) = File::open(file) { file }
-    else { return None; };
-    if file.read_to_end(&mut buffer).is_err() { return None; }
-    if let Ok(table) = bincode::deserialize(&buffer) { Some(table) }
-    else { None }
+    let buffer = match read_file_into_buffer(file){
+        Err(_) => { return None; },
+        Ok(x) => x,
+    };
+    parse_wavetable_from_buffer(&buffer)
 }
 
 /// Takes a bunch of samples, sr of the input and the frequency of the fundemental to create the
