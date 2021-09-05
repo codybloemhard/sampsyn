@@ -1,9 +1,23 @@
 use serde::{ Serialize, Deserialize };
 use simpleio::read_file_into_buffer;
 
+use std::f32::consts::PI;
+
 /// WaveTable(hz, sr, samples, [(time, wave)])
 #[derive(Serialize, Deserialize)]
 pub struct WaveTable(f32, usize, usize, Vec<(f32, Vec<f32>)>);
+
+/// The default wavetable contains one sinewave
+impl Default for WaveTable{
+    fn default() -> Self{
+        let hz = 440.0;
+        let sr = 44100;
+        let samples = (sr as f32 / hz).round() as usize;
+        let table = (0.0, (0..samples).map(|s| ((s as f32 / sr as f32) * hz * PI * 2.0).sin())
+                    .collect::<Vec<f32>>());
+        Self(hz, sr, samples, vec![table])
+    }
+}
 
 fn into_mono(stereo: Vec<i16>) -> Vec<f32>{
     let mut mono = Vec::new();
@@ -57,14 +71,9 @@ pub fn create_wavetable(stereo: Vec<i16>, sr: usize, hz: f32) -> WaveTable{
     WaveTable(hz, sr, samples, waves)
 }
 
-/// Takes a wave table and a frequency of what you want the fundemental of the output to be. t is
-/// the starting time it's at currently and sr is the samplerate of the output. len is the amount
-/// of frames the output should be.
-pub fn wavetable_act(WaveTable(waves_hz, _sr, samples, waves): &WaveTable, hz: f32, t: f32, sr: f32, len: usize) -> Vec<f32>{
-    let mut res = Vec::new();
-    if waves.is_empty() {
-        return res;
-    }
+pub type WaveTableState = (usize, usize, f32);
+
+fn initial_state_internal(waves: &[(f32, Vec<f32>)], t: f32) -> WaveTableState{
     let mut a = 0;
     let mut b = 0;
     let mut diff = 0.0;
@@ -87,6 +96,23 @@ pub fn wavetable_act(WaveTable(waves_hz, _sr, samples, waves): &WaveTable, hz: f
             diff = 0.0;
         }
     }
+    (a, b, diff)
+}
+
+/// Generates an initial state to use with `wavetable_act_state`. t is the starting time
+pub fn initial_state(WaveTable(_, _, _, waves): &WaveTable, t: f32) -> WaveTableState{
+    initial_state_internal(waves, t)
+}
+
+/// Takes a wave table and a frequency of what you want the fundemental of the output to be. t is
+/// the starting time it's at currently and sr is the samplerate of the output. len is the amount
+/// of frames the output should be.
+pub fn wavetable_act(WaveTable(waves_hz, _sr, samples, waves): &WaveTable, hz: f32, t: f32, sr: f32, len: usize) -> Vec<f32>{
+    let mut res = Vec::new();
+    if waves.is_empty() {
+        return res;
+    }
+    let (mut a, mut b, mut diff) = initial_state_internal(waves, t);
     // generate buffer
     let off = (t * sr) as usize;
     let sr_rat = *_sr as f32 / sr;
@@ -110,6 +136,34 @@ pub fn wavetable_act(WaveTable(waves_hz, _sr, samples, waves): &WaveTable, hz: f
         res.push(v);
     }
     res
+}
+
+/// Takes a wave table and a frequency of what you want the fundemental of the output to be. t is
+/// the time it's currently at. t must not jump through time. sr is the samplerate of the output.
+/// It takes the state and updates it. Outputs a single sample frame per use.
+pub fn wavetable_act_state(WaveTable(waves_hz, _sr, samples, waves): &WaveTable, (a, b, diff): &mut WaveTableState,
+        hz: f32, t: f32, sr: f32) -> f32{
+    if waves.is_empty() {
+        return 0.0;
+    }
+    // generate buffer
+    let sr_rat = *_sr as f32 / sr;
+
+    if t > waves[*b].0 && *b < waves.len() - 1{
+        *a += 1;
+        *b += 1;
+        *diff = waves[*b].0 - waves[*a].0;
+    }
+    // lerp between frames
+    let float_frame = t * sr * sr_rat * (hz / waves_hz);
+    let under = float_frame.floor() as usize % samples;
+    let above = float_frame.ceil() as usize % samples;
+    let fract = float_frame.fract();
+    let a_val = waves[*a].1[under] + fract * (waves[*a].1[above] - waves[*a].1[under]);
+    let b_val = waves[*b].1[under] + fract * (waves[*b].1[above] - waves[*b].1[under]);
+    // lerp between waves
+    let norm_t = ((t - waves[*a].0) / *diff).min(1.0);
+    a_val + norm_t * (b_val - a_val)
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 [package]
 name = "sampsyn"
-version = "0.1.0"
+version = "0.1.2"
 authors = ["Cody Bloemhard <cblmhrd@live.nl>"]
 edition = "2018"
 readme = "README.md"
