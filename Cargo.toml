@@ -14,13 +14,14 @@ name = "sampsyn"
 path = "src/lib.rs"
 
 [[bin]]
-name = "testbin"
+name = "sampsyn"
 path = "src/bin.rs"
 
 [dependencies]
-sdl2 = "0.34.3"
-hound = "3.4.0"
-rand = "0.8.3"
 serde = { version = "1.0.126", features = ["derive"] }
 bincode = "1.3.3"
 simpleio = "0.1.2"
+sdl2 = "0.34.3"
+hound = "3.4.0"
+clap = { version = "3.2.20", features = ["derive"] }
+

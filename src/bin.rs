@@ -1,23 +1,74 @@
+use sampsyn::*;
+
 use sdl2::audio::{ AudioCallback, AudioSpecDesired };
+use clap::{ Parser, Subcommand };
 
 use std::time::Duration;
 use std::convert::TryInto;
 use std::f32::consts::PI;
 use std::io::Write;
 
-use sampsyn::*;
-
-pub fn main(){
-    let hz = 130.81; // 130.81 = c3, 261.63 = c4, 523.25 = c5
-    // let table = table_from_file_from_arg(hz);
-    let table = read_wavetable_from_file("table").unwrap();
-    play_table(&table, 440.0, 0.0, 48000);
-    // table_write(&table, "table")
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args{
+    #[clap(subcommand)]
+    command: Commands,
 }
 
-pub fn table_from_file_from_arg(hz: f32) -> WaveTable{
-    let args: Vec<String> = std::env::args().collect();
-    let file = &args[1];
+#[derive(Subcommand, Debug)]
+enum Commands{
+    Build{
+        #[clap(required = true, help = "The input should be a .wav sound file.")]
+        input: String,
+        #[clap(required = true, help = "The file name of the sampsyn wavetable.")]
+        output: String,
+        #[clap(long, default_value_t = 440.0, help = "Fundamental frequency of the input file.")]
+        hz: f32,
+    },
+    Play{
+        #[clap(required = true, help = "The input should be a sampsyn wavetable.")]
+        input: String,
+        #[clap(long, default_value_t = 440.0, help = "Frequency of the note to play.")]
+        hz: f32,
+        #[clap(long, default_value_t = 48000, help = "Sample rate of the playback.")]
+        sr: usize,
+        #[clap(long, default_value_t = 4.0, help = "Length of the playback in seconds.")]
+        len: f64,
+    },
+    Run{
+        #[clap(required = true, help = "The input should be a .wav sound file.")]
+        input: String,
+        #[clap(long, default_value_t = 440.0, help = "Fundamental frequency of the input file.")]
+        in_hz: f32,
+        #[clap(long, default_value_t = 440.0, help = "Frequency of the note to play.")]
+        out_hz: f32,
+        #[clap(long, default_value_t = 48000, help = "Sample rate of the playback.")]
+        sr: usize,
+        #[clap(long, default_value_t = 4.0, help = "Length of the playback in seconds.")]
+        len: f64,
+    },
+}
+
+pub fn main(){
+    let args = Args::parse();
+    match args.command{
+        Commands::Build{ input, output, hz } => {
+            // 130.81 = c3, 261.63 = c4, 523.25 = c5
+            let table = table_from_file_from_arg(&input, hz);
+            table_write(&table, &output)
+        },
+        Commands::Play{ input, hz, sr, len } => {
+            let table = read_wavetable_from_file(&input).unwrap();
+            play_table(&table, hz, 0.0, sr, len);
+        },
+        Commands::Run{ input, in_hz, out_hz, sr, len } => {
+            let table = table_from_file_from_arg(&input, in_hz);
+            play_table(&table, out_hz, 0.0, sr, len);
+        },
+    }
+}
+
+pub fn table_from_file_from_arg(file: &str, hz: f32) -> WaveTable{
     let mut reader = hound::WavReader::open(file).expect("Could not open file!");
     let mut copy = Vec::new();
     for s in reader.samples::<i16>().take(5 * 44100){
@@ -34,8 +85,9 @@ pub fn table_write(table: &WaveTable, file: &str){
     buffer.write_all(&bytes).unwrap();
 }
 
-pub fn play_table(table: &WaveTable, hz: f32, t: f32, sr: usize){
-    let samples = wavetable_act(table, hz, t, sr as f32, sr * 9);
+pub fn play_table(table: &WaveTable, hz: f32, t: f32, sr: usize, secs: f64){
+    let len = (sr as f64 * secs) as usize;
+    let samples = wavetable_act(table, hz, t, sr as f32, len);
     play_sdl_audio_mono(samples, sr, 0.99);
 }
 
